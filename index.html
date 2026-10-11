@@ -120,6 +120,7 @@ main{max-width:1060px;margin:-60px auto 0;padding:0 18px 40px;position:relative;
 .ods b{font-family:var(--serif);font-style:italic;font-size:44px;line-height:1;flex:none}
 .ods span{font-size:15.5px;line-height:1.35}.ods span strong{display:block;font-size:17px}
 footer{text-align:center;color:var(--foot);font-size:13px;padding:6px 20px 36px}
+.visitas{display:block;margin-top:6px;font-size:12px;opacity:.8}
 @media(max-width:600px){
   .hero{padding:40px 16px 120px}
   .chip{font-size:13px}
@@ -274,8 +275,10 @@ footer{text-align:center;color:var(--foot);font-size:13px;padding:6px 20px 36px}
   </section>
 </main>
 
-<footer>Divulgação Emprego Guaíba e Região • Projeto voluntário</footer>
+<footer>Divulgação Emprego Guaíba e Região • Projeto voluntário<span class="visitas" id="visitas" hidden>👁 <b id="visitasNum">0</b> visitantes</span></footer>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script>
 // ====== EDITE AQUI: coloque os links reais ======
 const LINKS = {
@@ -308,6 +311,45 @@ const io = new IntersectionObserver(es => es.forEach(en => {
 }), {threshold:.4});
 document.querySelectorAll('[data-to]').forEach(el => io.observe(el));
 io.observe(bar);
+
+// ====== CONTADOR (mesmo Firebase do site da Orizon) ======
+const CONTADOR = {
+  caminhoVisitas: "stats/visits",   // MESMO contador do index3 (soma junto). Para separar, use ex.: "stats/visits_emprego"
+  caminhoCliques: "stats/clicks",   // cliques: stats/clicks/facebook, instagram, whatsapp
+  mostrar: true                      // false = conta, mas não mostra o número na página
+};
+try{
+  const cfg = {
+    apiKey: "AIzaSyDA_s5wRqWHHF5MZSYcONRbGGBxW5o-XY8",
+    authDomain: "contador-de-visitas-d6f70.firebaseapp.com",
+    databaseURL: "https://contador-de-visitas-d6f70-default-rtdb.firebaseio.com",
+    projectId: "contador-de-visitas-d6f70",
+    storageBucket: "contador-de-visitas-d6f70.firebasestorage.app",
+    messagingSenderId: "505164647916",
+    appId: "1:505164647916:web:c2cf128fd396afc31604c9"
+  };
+  if(!firebase.apps.length) firebase.initializeApp(cfg);
+  const db = firebase.database();
+  const somar = (caminho) => db.ref(caminho).transaction(v => (v || 0) + 1);
+
+  function mostrar(total){
+    if(!CONTADOR.mostrar || total == null) return;
+    document.getElementById("visitasNum").textContent = Number(total).toLocaleString("pt-BR");
+    document.getElementById("visitas").hidden = false;
+  }
+  // 1 visita por sessão (F5 não infla o número)
+  if(!sessionStorage.getItem("visita")){
+    sessionStorage.setItem("visita","1");
+    somar(CONTADOR.caminhoVisitas).then(r => mostrar(r.snapshot.val())).catch(e => console.warn("[contador]", e));
+  }else{
+    db.ref(CONTADOR.caminhoVisitas).once("value").then(sn => mostrar(sn.val())).catch(()=>{});
+  }
+  // conta cliques nos botões (facebook, instagram, whatsapp)
+  document.querySelectorAll('[data-link]').forEach(a =>
+    a.addEventListener('click', () => somar(CONTADOR.caminhoCliques + "/" + a.dataset.link).catch(()=>{}))
+  );
+}catch(e){ console.warn("[contador] Firebase indisponível", e); }
+// ===============================================
 
 document.getElementById('share').addEventListener('click', async () => {
   const data = {title:'Divulgação Emprego Guaíba e Região', text:'Vagas de emprego em Guaíba e região.', url:location.href};
